@@ -1,13 +1,598 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<head>
+		<title>interactive - voxel painter</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+		<style>
+			body {
+				background-color: #f0f0f0;
+				color: #444;
+			}
+			a {
+				color: #08f;
+			}
 
-    <title>Document</title>
-</head>
-<body>
-<h1>Hola</h1>
-</body>
+			button{
+			  background:#1AAB8A;
+			  color:#fff;
+			  border:none;
+			  position:absolute;
+			  height:5%;
+			  width:7.5%;
+			  font-size: 1em;
+			  padding:0 2em;
+			  cursor:pointer;
+			  transition:800ms ease all;
+			  outline:none;
+			}
+
+		</style>
+	</head>
+	<body>
+
+		<div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - voxel painter - webgl<br>
+			<strong>click</strong>: add voxel, <strong>shift + click</strong>: remove voxel<br>
+			<strong>click der</strong>: moverse alrededor de espacio, <strong>click izq</strong>: moverse en el espacio, <strong>scroll</strong>: zoom<br><br>
+		</div>
+
+		<div id="my-div">
+			<button id='button' style="left:92.5%; top:15%" onClick="cubo()">CUBO</button> 
+			<button id='button' style="left:92.5%; top:25%" onClick="cilin()">CILINDRO</button> 
+			<button id='button' style="left:92.5%; top:35%" onClick="esfera()">ESFERA</button>
+			<button id='button' style="left:92.5%; top:45%" onClick="torus()">TORO</button>
+			<button id='button' style="left:92.5%; top:55%" onClick="cono()">CONO</button>
+			<button id='button' style="left:92.5%; top:65%" onClick="prisma()">PRISMA</button>
+
+			<button id='button' style="left:0%; top:95%" onclick="reset(), alert('Q + Click = Rotar (eje X) -- W + Click = Rotar (eje Y) -- E + Click = Rotar (eje Z)') ">REINICIAR ROTACION</button>
+
+            <button id='button' style="left:0%; top:15%" onClick="figura1()">FIGURA 1</button> 
+            <button id='button' style="left:0%; top:25%" onClick="figura2()">FIGURA 2</button> 
+            <button id='button' style="left:0%; top:35%" onClick="figura3()">FIGURA 3</button> 
+            <button id='button' style="left:0%; top:45%" onClick="figura4()">FIGURA 4</button> 
+			<button id='button' style="left:0%; top:55%" onClick="figura5()">FIGURA 5</button> 
+			<button id='button' style="left:0%; top:65%" onClick="figura6()">FIGURA 6</button> 
+
+			<button type="button" style="left:31%; top:95%; background:#AA3333" onclick="rojo()">COLOR ROJO</button>
+			<button type="button" style="left:38.5%; top:95%; background:#33AA33" onclick="verde()">COLOR VERDE</button>
+			<button type="button" style="left:46%; top:95%; background:#313EE3" onclick="azul()">COLOR AZUL</button>
+			<button type="button" style="left:53.5%; top:95%; background:#feb74c" onclick="amarillo()">COLOR AMARILLO</button>
+			<button type="button" style="left:61%; top:95%; background:#6C31E3" onclick="purpura()">COLOR PURPURA</button>
+			
+		</div>
+		
+		<script src="js/three.js"></script>
+		<script src="js/controls/OrbitControls.js"></script>
+		<script src="js/csg.js"></script>
+		<script src="js/THREE.CSG.js"></script>
+    	<script>
+
+            var camera, scene, rederer_2, controls, color;
+			var plane;
+			var mouse, raycaster, isShiftDown = false;
+			var isAdown = false, isSdown = false, isDdown = false, isFdown = false, isGdown = false;
+			var isQdown = false, isWdown = false, isEdown = false;
+
+			var rollOverMesh, rollOverMaterial;
+			var cubeGeo, cubeMaterial;
+			var objects = [];
+
+			var boxGeometry = new THREE.BoxGeometry( 50, 50, 50 );
+			var sphereGeometry = new THREE.SphereGeometry( 30, 32, 32 );
+			var cilGeometry = new THREE.CylinderGeometry( 10, 10, 50, 32 );
+			var torusGeometry = new THREE.TorusBufferGeometry( 20, 5, 16, 100 );
+			var conoGeometry = new THREE.ConeGeometry(25, 50, 30);
+			var prismaGeometry = new THREE.CylinderGeometry( 25, 25, 50, 3 );
+
+            var objeto, cont, result1, result2, result3, result4, result5, result6;
+			var rotx = 0;
+			var roty = 0;
+			var rotz = 0;
+
+			init();
+			animate();
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.set( 1300, 800, 0 );
+				camera.lookAt( 0, 0, 0 );
+
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color( 0xf0f0f0 );
+
+				renderer_2 = new THREE.WebGLRenderer( { antialias: true } );
+				renderer_2.setPixelRatio( window.devicePixelRatio );
+				renderer_2 = new THREE.WebGLRenderer();
+				renderer_2.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer_2.domElement );
+				controls = new THREE.OrbitControls( camera, renderer_2.domElement );
+
+				// roll-over helpers
+
+				var rollOverGeo = new THREE.BoxBufferGeometry( 50, 50, 50 );
+				rollOverMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000, opacity: 0.5, transparent: true } );
+				rollOverMesh = new THREE.Mesh( rollOverGeo, rollOverMaterial );
+				scene.add( rollOverMesh );
+
+				//material
+				cubeMaterial = new THREE.MeshLambertMaterial( { color: 0xfeb74c} );
+
+				// grid
+
+				var gridHelper = new THREE.GridHelper( 1000, 20 );
+				scene.add( gridHelper );
+
+				//
+
+				raycaster = new THREE.Raycaster();
+				mouse = new THREE.Vector2();
+
+				var geometry = new THREE.PlaneBufferGeometry( 1000, 1000 );
+				geometry.rotateX( - Math.PI / 2 );
+
+				plane = new THREE.Mesh( geometry, new THREE.MeshBasicMaterial( { visible: false } ) );
+				scene.add( plane );
+
+				objects.push( plane );
+
+				// lights
+
+				var ambientLight = new THREE.AmbientLight( 0x606060 );
+				scene.add( ambientLight );
+
+				var directionalLight = new THREE.DirectionalLight( 0xffffff );
+				directionalLight.position.set( 1, 0.75, 0.5 ).normalize();
+				scene.add( directionalLight );
+
+				/*renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );*/
+
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				document.addEventListener( 'keydown', onDocumentKeyDown, false );
+				document.addEventListener( 'keyup', onDocumentKeyUp, false );
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+                renderer_2.setSize( window.innerWidth, window.innerHeight );
+				//renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function onDocumentMouseMove( event ) {
+
+				event.preventDefault();
+				mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
+				raycaster.setFromCamera( mouse, camera );
+
+				var intersects = raycaster.intersectObjects( objects );
+
+				if ( intersects.length > 0 ) {
+
+					var intersect = intersects[ 0 ];
+					rollOverMesh.position.copy( intersect.point ).add( intersect.face.normal );
+					rollOverMesh.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+
+				}
+				render();
+			}
+
+			function onDocumentMouseDown( event ) {
+
+				event.preventDefault();
+				mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
+				raycaster.setFromCamera( mouse, camera );
+				var intersects = raycaster.intersectObjects( objects );
+
+				if ( intersects.length > 0 ) {
+					var intersect = intersects[ 0 ];
+
+					// delete cube
+
+					if ( isShiftDown ) {
+						if ( intersect.object !== plane ) {
+							scene.remove( intersect.object );
+							objects.splice( objects.indexOf( intersect.object ), 1 );
+						}
+
+						// create cube
+
+					} else {
+
+                        if ( cont == 1 ){
+                        var C2T1 = THREE.CSG.toMesh( result4 );
+			            C2T1.material = cubeMaterial;
+                        objeto = C2T1; 
+						}
+
+                        else if ( cont == 2 ){
+                        var C2T2 = THREE.CSG.toMesh( result3 );
+			            C2T2.material = cubeMaterial; 
+                        objeto=C2T2;
+						}
+
+                        else if ( cont == 3 ){
+                        var C2T3 = THREE.CSG.toMesh( result2 );
+			            C2T3.material = cubeMaterial; 
+                        objeto=C2T3;
+						}
+
+                        else if ( cont == 4 ){
+                        var C2T4 = THREE.CSG.toMesh( result1 );
+			            C2T4.material = cubeMaterial; 
+                        objeto=C2T4;
+						}
+
+                        else if ( cont == 5 ){
+                        var C2T5 = THREE.CSG.toMesh( result6 );
+			            C2T5.material = cubeMaterial; 
+                        objeto = C2T5;
+						}
+
+						else if ( cont == 6 ){
+						var C2T6 = THREE.CSG.toMesh( result2 );
+			            C2T6.material = cubeMaterial; 
+                        objeto = C2T6;
+						}
+
+						else if ( cont == -1 ){
+						var cilindro = new THREE.Mesh( cilGeometry );
+			            cilindro.material = cubeMaterial; 
+                        objeto = cilindro;
+						}
+
+						else if ( cont == -2 ){
+						var sphereGeometry2 = new THREE.SphereGeometry( 25, 32, 32 );
+						var esfera = new THREE.Mesh( sphereGeometry2 );
+			            esfera.material = cubeMaterial; 
+                        objeto = esfera;
+						}
+
+						else if ( cont == -3 ){
+						var toro = new THREE.Mesh( torusGeometry );
+			            toro.material = cubeMaterial; 
+                        objeto = toro;
+						}
+
+						else if ( cont == -4 ){
+						var cono = new THREE.Mesh( conoGeometry );
+			            cono.material = cubeMaterial; 
+                        objeto = cono;
+
+						}
+
+						else if ( cont == -5 ){
+						var prisma = new THREE.Mesh( prismaGeometry );
+			            prisma.material = cubeMaterial; 
+                        objeto = prisma;
+
+						}
+
+                        else{
+                        var voxel = new THREE.Mesh( boxGeometry, cubeMaterial );
+                        objeto=voxel;
+                        objeto.position.copy( intersect.point ).add( intersect.face.normal );
+			            objeto.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+			            scene.add( objeto );
+
+			            objects.push( objeto );
+                        }
+
+				        //AGREGAR A LA ESCENA 
+						if ( isQdown ){
+							objeto.position.copy( intersect.point ).add( intersect.face.normal );
+			            	objeto.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+			            	scene.add( objeto );
+							objeto.rotation.x = rotx * Math.PI / 180
+							rotx += 90;
+						}
+						if ( isWdown ){
+							objeto.position.copy( intersect.point ).add( intersect.face.normal );
+			            	objeto.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+			            	scene.add( objeto );
+							objeto.rotation.y = roty * Math.PI / 180
+							roty += 90;
+						}
+						if ( isEdown ){
+							objeto.position.copy( intersect.point ).add( intersect.face.normal );
+			            	objeto.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+			            	scene.add( objeto );
+							objeto.rotation.z = rotz * Math.PI / 180
+							rotz += 90;
+						}
+						
+						objeto.position.copy( intersect.point ).add( intersect.face.normal );
+			            objeto.position.divideScalar( 50 ).floor().multiplyScalar( 50 ).addScalar( 25 );
+			            scene.add( objeto );
+						objeto.rotation.x = rotx * Math.PI / 180
+						objeto.rotation.y = roty * Math.PI / 180
+						objeto.rotation.z = rotz * Math.PI / 180
+			            objects.push( objeto );
+					}
+				}
+				render();
+			}
+
+			function onDocumentKeyDown( event ) {
+
+				switch ( event.keyCode ) {
+					case 16: isShiftDown = true; break;
+
+					case 81: isQdown = true; break;	
+					case 87: isWdown = true; break;	
+					case 69: isEdown = true; break;	
+
+
+				}
+			}
+
+			function onDocumentKeyUp( event ) {
+
+				switch ( event.keyCode ) {
+					case 16: isShiftDown = false; break;
+
+					case 81: isQdown = false; break;	
+					case 87: isWdown = false; break;	
+					case 69: isEdown = false; break;		
+		
+				}
+			}
+
+			function reset(){
+				rotx=0;
+				roty=0;
+				rotz=0;
+				onDocumentMouseDown(event);
+			}
+
+            function cubo(  ) {
+                cont=0;
+                onDocumentMouseDown(event);
+            }
+
+            function cilin(  ) {
+                cont=-1;
+                onDocumentMouseDown(event);
+            }
+
+			function esfera(  ) {
+                cont=-2;
+                onDocumentMouseDown(event);
+            }
+
+			function torus(  ) {
+                cont=-3;
+                onDocumentMouseDown(event);
+            }
+
+			function cono(  ) {
+                cont=-4;
+                onDocumentMouseDown(event);
+            }
+			
+			function prisma(  ) {
+                cont=-5;
+                onDocumentMouseDown(event);
+            }
+
+			function rojo(  ) {
+				cubeMaterial = new THREE.MeshLambertMaterial( { color: 0xAA3333 } );
+                onDocumentMouseDown(event);
+            }
+
+			function verde(  ) {
+				cubeMaterial = new THREE.MeshLambertMaterial( { color: 0x33AA33 } );
+                onDocumentMouseDown(event);
+            }
+
+			function azul(  ) {
+				cubeMaterial = new THREE.MeshLambertMaterial( { color: 0x313EE3 } );
+                onDocumentMouseDown(event);
+            }
+
+			function amarillo(  ) {
+				cubeMaterial = new THREE.MeshLambertMaterial( { color: 0xfeb74c } );
+                onDocumentMouseDown(event);
+            }
+
+			function purpura(  ) {
+				cubeMaterial = new THREE.MeshLambertMaterial( { color: 0x6C31E3} );
+			onDocumentMouseDown(event);
+			}
+
+			function figura1( ){
+
+			//CREAR LAS MALLAS
+			var cube = new THREE.Mesh( boxGeometry );
+			var sphere = new THREE.Mesh( sphereGeometry );
+			var cilindro = new THREE.Mesh ( cilGeometry );
+			var cilindro2 = new THREE.Mesh ( cilGeometry );
+			var cilindro3 = new THREE.Mesh ( cilGeometry );
+			
+            cilindro2.rotation.z = 90 * Math.PI / 180
+			cilindro3.rotation.x = 90 * Math.PI / 180
+			
+			//CONVERTIR A CSG
+			var boxCSG = THREE.CSG.fromMesh( cube );
+			var sphereCSG = THREE.CSG.fromMesh( sphere );
+			var cilcsg = THREE.CSG.fromMesh (cilindro);
+			var cil2csg = THREE.CSG.fromMesh (cilindro2);
+			var cil3csg = THREE.CSG.fromMesh (cilindro3);
+			
+			//APLICAR LAS OPERACIONES
+			result1= boxCSG.intersect( sphereCSG  );	
+			result2 = cilcsg.union( cil2csg );	
+			result3 = result2.union( cil3csg );	
+			result4 = result1.subtract( result3 );	
+			
+			//CONVERTIR A MALLA DE THREE JS NUEVAMENTE
+            cont=1;
+            onDocumentMouseDown(event);
+			}
+
+			function figura2( ){
+
+			//CREAR LAS MALLAS
+			var cilindro = new THREE.Mesh (cilGeometry);
+			var cilindro2 = new THREE.Mesh (cilGeometry);
+			var cilindro3 = new THREE.Mesh (cilGeometry);
+
+            cilindro2.rotation.z = 90 * Math.PI / 180
+			cilindro3.rotation.x = 90 * Math.PI / 180
+
+			var cilcsg = THREE.CSG.fromMesh (cilindro);
+			var cil2csg = THREE.CSG.fromMesh (cilindro2);
+			var cil3csg = THREE.CSG.fromMesh (cilindro3);
+
+			//APLICAR LAS OPERACIONES
+			result2 = cilcsg.union( cil2csg );	
+			result3 = result2.union( cil3csg );	
+
+			//CONVERTIR A MALLA DE THREE JS NUEVAMENTE
+            cont=2;
+            onDocumentMouseDown(event);
+			}
+
+			function figura3( ){
+
+			//CREAR LAS MALLAS
+			var boxGeometry2 = new THREE.BoxGeometry( 25, 17.5, 50 );
+			var cube = new THREE.Mesh( boxGeometry );
+            var cube2 = new THREE.Mesh( boxGeometry2 );
+			var cube3 = new THREE.Mesh( boxGeometry2 );
+
+            cube2.translateY(16.25);
+            cube3.translateY(-16.25);
+
+			var boxCSG = THREE.CSG.fromMesh( cube );
+            var box2CSG = THREE.CSG.fromMesh( cube2 );
+            var box3CSG = THREE.CSG.fromMesh( cube3 );
+
+			//APLICAR LAS OPERACIONES
+			result1 = boxCSG.subtract( box2CSG  );	
+            result2 = result1.subtract( box3CSG  );	
+
+			//CONVERTIR A MALLA DE THREE JS NUEVAMENTE
+            cont=3;
+            onDocumentMouseDown(event);
+			}
+
+			function figura4( ){
+
+			//CREAR LAS MALLAS
+			var cilGeometry2 = new THREE.CylinderGeometry( 25, 25, 50, 3 );
+            var cil = new THREE.Mesh( cilGeometry2 );
+            var cil2 = new THREE.Mesh( cilGeometry2);
+
+			cil2.rotation.y = 60 * Math.PI / 180
+
+			//CONVERTIR A CSG
+            var cilCSG = THREE.CSG.fromMesh( cil );
+            var cil2CSG = THREE.CSG.fromMesh( cil2 );
+
+			//APLICAR LAS OPERACIONES
+			result1 = cilCSG.union( cil2CSG  );	
+
+			//CONVERTIR A MALLA DE THREE JS NUEVAMENTE
+            cont=4;
+            onDocumentMouseDown(event);
+			}
+
+			function figura5( ){
+			var cilGeometry2 = new THREE.CylinderGeometry( 5, 5, 50, 32 );
+            var cilGeometry3 = new THREE.CylinderGeometry( 10, 10, 50, 32 );
+			var boxGeometry2 = new THREE.BoxGeometry( 50, 15, 50 );
+
+			//CREAR LAS MALLAS
+			var cube = new THREE.Mesh( boxGeometry2 );
+            var cube2 = new THREE.Mesh( boxGeometry2 );
+
+            var cil = new THREE.Mesh( cilGeometry2 );
+            var cil2 = new THREE.Mesh( cilGeometry2 );
+            var cil3 = new THREE.Mesh( cilGeometry2 );
+            var cil4 = new THREE.Mesh( cilGeometry2);
+            var cil5 = new THREE.Mesh( cilGeometry3 );
+
+            cube.translateY(-17.5);
+            cube2.translateY(17.5);
+
+            cil.translateX(20);
+            cil.translateZ(20);
+            cil2.translateX(-20);
+            cil2.translateZ(20);
+            cil3.translateX(20);
+            cil3.translateZ(-20);
+            cil4.translateX(-20);
+            cil4.translateZ(-20);
+
+			//CONVERTIR A CSG
+            var cubeCSG = THREE.CSG.fromMesh( cube );
+            var cube2CSG = THREE.CSG.fromMesh( cube2 );
+            var cilCSG = THREE.CSG.fromMesh( cil );
+            var cil2CSG = THREE.CSG.fromMesh( cil2 );
+            var cil3CSG = THREE.CSG.fromMesh( cil3 );
+            var cil4CSG = THREE.CSG.fromMesh( cil4 );
+            var cil5CSG = THREE.CSG.fromMesh( cil5 );
+        
+
+			//APLICAR LAS OPERACIONES //intersect, union, subtract
+            result1 = cubeCSG.union( cilCSG  );	
+            result2 = result1.union( cil2CSG  );	
+            result3 = result2.union( cil3CSG  );	
+            result4 = result3.union( cil4CSG  );	
+            result5 = result4.union( cube2CSG  );
+            result6 = result5.subtract( cil5CSG  );
+			
+			//CONVERTIR A MALLA DE THREE JS NUEVAMENTE
+            cont=5;
+            onDocumentMouseDown(event);
+			}
+
+			function figura6( ){
+			var boxGeometry2 = new THREE.BoxGeometry( 16.7, 50, 50 );
+			var boxGeometry3 = new THREE.BoxGeometry( 16.7, 33.3, 50 );
+      		var boxGeometry4 = new THREE.BoxGeometry( 16.7, 16.7, 50 );
+
+			var cube = new THREE.Mesh( boxGeometry2 );
+			var cube2 = new THREE.Mesh( boxGeometry3 );
+			var cube3 = new THREE.Mesh( boxGeometry4 );
+
+			cube.translateX(-16.6);
+            cube2.translateX(0);
+            cube2.translateY(-8.3);
+            cube3.translateX(16.6);
+            cube3.translateY(-16.3);
+
+			var cubeCSG = THREE.CSG.fromMesh( cube );
+            var cube2CSG = THREE.CSG.fromMesh( cube2 );
+            var cube3CSG = THREE.CSG.fromMesh( cube3 );
+
+            result1 = cubeCSG.union( cube2CSG  );
+			result2 = result1.union( cube3CSG  );
+
+			cont=6;
+			onDocumentMouseDown(event);
+			}
+
+			function animate(){
+			requestAnimationFrame( animate );
+			controls.update();
+			render()
+			}
+
+			function render(){
+			//renderer.render( scene, camera );
+			renderer_2.render( scene, camera );
+			}
+
+		</script>
+	</body>
 </html>
